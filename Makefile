@@ -1,31 +1,29 @@
 include config.mk
+include tools.mk
 
-TOOLS_DIR := hack/tools
-TOOLS_BIN_DIR := $(TOOLS_DIR)/bin
-export STACKER := $(TOOLS_BIN_DIR)/stacker
+SUBDIRS := static base openj9 go-devel openj9-devel multitool
 
-export BUILD_DIR := build/
-
-SUBDIRS := images
+.DEFAULT_GOAL := all
 
 .PHONY: all
-all: $(STACKER) subdirs
+all: $(STACKER) build
 
-$(STACKER):
-	mkdir -p $(TOOLS_BIN_DIR)
-	curl -fsSL https://github.com/project-stacker/stacker/releases/latest/download/stacker -o $@
-	chmod +x $@
-
-.PHONY: subdirs
-subdirs:
+.PHONY: build
+build:
 	mkdir -p $(BUILD_DIR)
 	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir; \
+		$(MAKE) -C images/$$dir; \
+	done
+
+.PHONY: publish
+publish:
+	for dir in $(SUBDIRS); do \
+		$(MAKE) -C images/$$dir publish; \
 	done
 
 .PHONY: clean
 clean: 
 	for dir in $(SUBDIRS); do \
-		$(MAKE) -C $$dir clean; \
+		$(MAKE) -C images/$$dir clean; \
 	done
 	rm -rf $(BUILD_DIR)
