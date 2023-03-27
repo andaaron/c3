@@ -1,23 +1,22 @@
 include ../../config.mk
+include ../../config_golang.mk
+include ../../config_busybox.mk
+include ../../tools.mk
 
-TOOLS_DIR := ../../hack/tools
-TOOLS_BIN_DIR := $(TOOLS_DIR)/bin
-STACKER := $(TOOLS_BIN_DIR)/stacker
-BUILD_DIR := ../../build
+ifeq ($(strip $(PUBLISH_TAG)),)
+override PUBLISH_TAG := $(GOLANG)
+endif
 
-SRC := $(wildcard *.yaml)
-IMAGES := $(patsubst %.yaml,%,$(SRC))
+.DEFAULT_GOAL := all
 
 .PHONY: all
-all: $(IMAGES) test
+all: build test
 
-.PHONY: %
-%:
-	$(STACKER) \
-		--stacker-dir $(BUILD_DIR)/.stacker \
-		--oci-dir $(BUILD_DIR)/oci \
-		--roots-dir $(BUILD_DIR)/roots \
-		build -f $*.yaml \
+.PHONY: build
+build: $(STACKER)
+	$(STACKER_WITH_BUILD_DIR) \
+		build -f stacker.yaml \
+		--layer-type tar --layer-type squashfs \
 		--substitute REVISION=$(COMMIT) \
 		--substitute LICENSES="$(shell cat LICENSE.md)" \
 		--substitute DESCRIPTION="$(shell cat README.md)" \
@@ -31,13 +30,26 @@ all: $(IMAGES) test
 		--substitute GOLANG_LINTER=$(GOLANG_LINTER) \
 		--substitute BUSYBOX=$(BUSYBOX)
 
+.PHONY: publish
+publish: $(STACKER)
+	$(STACKER_WITH_BUILD_DIR) \
+		publish -f stacker.yaml \
+		--layer-type tar --layer-type squashfs \
+		--substitute REVISION=$(COMMIT) \
+		--substitute LICENSES="$(shell cat LICENSE.md)" \
+		--substitute DESCRIPTION="$(shell cat README.md)" \
+		--substitute OS=$(OS) \
+		--substitute ARCH=$(ARCH) \
+		--substitute DISTRO=$(DISTRO) \
+		--substitute DISTRO_REL=$(DISTRO_REL) \
+		--substitute GOLANG=$(GOLANG) \
+		--substitute GOLANG_HASH=$(GOLANG_HASH) \
+		--substitute GOLANG_DLV=$(GOLANG_DLV) \
+		--substitute GOLANG_LINTER=$(GOLANG_LINTER) \
+		--substitute BUSYBOX=$(BUSYBOX) \
+		--url $(PUBLISH_URL)/$(DISTRO) \
+		--tag $(PUBLISH_TAG) \
+		$(PUBLISH_EXTRA_ARGS)
+
 .PHONY: test
 test:
-
-.PHONY: clean
-clean:
-	$(STACKER) \
-		--stacker-dir $(BUILD_DIR)/.stacker \
-		--oci-dir $(BUILD_DIR)/oci \
-		--roots-dir $(BUILD_DIR)/roots \
-		clean

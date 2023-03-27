@@ -24,6 +24,8 @@ build-devel:
     . /stacker/$DISTRO-pkgs.sh
     # source pkgmgr func defs
     . /stacker/defs.sh
+    # install build related tooling
+    install_host_pkgs $HOST_PKGS
     # build the rootfs
     build_rootfs
   build_only: true

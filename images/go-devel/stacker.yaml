@@ -26,9 +26,6 @@ build-go-devel:
     cp /stacker/rootfs.tar /
     # source pkgmgr func defs
     . /stacker/defs.sh
-    # install helper pkgs in base container
-    HOST_PKGS="curl wget git"
-    install_host_pkgs $HOST_PKGS
     # prepare the rootfs
     dldir=$(mktemp -d ${TMPDIR:-/tmp}/XXXXXX)
     # install go
