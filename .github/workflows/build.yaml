@@ -5,7 +5,7 @@ on:
     tags:  # Use tags trigger instead of releases, tags are supported by tj-actions/changed-files
       - 'v*'
     branches:
-      - main
+      - refactor4
     paths:
       - images/**
       - '**.mk'
