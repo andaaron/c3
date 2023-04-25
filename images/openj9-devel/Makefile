@@ -7,6 +7,11 @@ ifeq ($(strip $(PUBLISH_TAG)),)
 override PUBLISH_TAG := $(shell echo $(OPENJDK) | awk -F "." '/1/ {print $$1}')
 endif
 
+PUBLISH_CREDS :=
+ifneq ($(PUBLISH_USERNAME),)
+PUBLISH_CREDS := --username $(PUBLISH_USERNAME) --password $(PUBLISH_PASSWORD)
+endif
+
 LAYER_SUFFIX :=
 ifeq ($(LAYER_TYPE),squashfs)
 LAYER_SUFFIX := "-squashfs"
@@ -58,6 +63,7 @@ publish: $(STACKER)
 		--substitute BUSYBOX=$(BUSYBOX) \
 		--url $(PUBLISH_URL)/$(DISTRO) \
 		--tag $(PUBLISH_TAG) \
+		$(PUBLISH_CREDS) \
 		$(PUBLISH_EXTRA_ARGS)
 
 .PHONY: test

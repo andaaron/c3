@@ -10,6 +10,11 @@ ifeq ($(LAYER_TYPE),squashfs)
 LAYER_SUFFIX := "-squashfs"
 endif
 
+PUBLISH_CREDS :=
+ifneq ($(PUBLISH_USERNAME),)
+PUBLISH_CREDS := --username $(PUBLISH_USERNAME) --password $(PUBLISH_PASSWORD)
+endif
+
 PUBLISH_IMAGE_NAME := $(shell basename $$(pwd))-$(ARCH)
 
 .DEFAULT_GOAL := all
@@ -51,6 +56,7 @@ publish: $(STACKER)
 		--substitute DISTRO_REL=$(DISTRO_REL) \
 		--url $(PUBLISH_URL)/$(DISTRO) \
 		--tag $(PUBLISH_TAG) \
+		$(PUBLISH_CREDS) \
 		$(PUBLISH_EXTRA_ARGS)
 
 .PHONY: pull
