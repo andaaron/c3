@@ -3,11 +3,11 @@ name: build
 on:
   push:
     branches:
-      - main
-    paths:
-      - images/**
-      - '**.mk'
-      - .github/workflows/build.yaml
+      - tags2
+    # paths:
+    #   - images/**
+    #   - '**.mk'
+    #   - .github/workflows/build.yaml
   pull_request:
     branches:
       - main
@@ -93,7 +93,7 @@ jobs:
     name: Build only
     needs: [generate_build_input]
     if: |
-      (github.ref != 'refs/heads/main') &&
+      (github.ref == 'refs/heads/main') &&
       (needs.generate_build_input.outputs.folders_to_build != '')
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -168,13 +168,9 @@ jobs:
   build_publish:
     name: Build and publish
     needs: [generate_build_input]
-    if: |
-      (github.ref == 'refs/heads/main') &&
-      (needs.generate_build_input.outputs.folders_to_build != '')
+    if: (needs.generate_build_input.outputs.folders_to_build != '')
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      DOCKER_CONFIG: $HOME/.docker
     strategy:
       max-parallel: 3
       matrix:
@@ -200,8 +196,14 @@ jobs:
           echo ARCH=${{ matrix.arch }} >> $GITHUB_ENV
           echo OS=${{ matrix.os }} >> $GITHUB_ENV
           echo SUBDIRS="${{needs.generate_build_input.outputs.folders_to_build}}" >> $GITHUB_ENV
-          echo ZOT_VERSION="v1.4.3" >> $GITHUB_ENV
+          echo ZOT_VERSION="v2.0.0-rc3" >> $GITHUB_ENV
           echo DEFAULT_BRANCH=origin/${{ github.event.repository.default_branch }} >> $GITHUB_ENV
+      - name: Run zot container image with podman
+        run: |
+          wget -N https://raw.githubusercontent.com/project-zot/zot/${ZOT_VERSION}/examples/config-cve.json
+          sed -i s/127\.0\.0\.1/0.0.0.0/g config-cve.json
+          sed -i s/8080/5000/g config-cve.json
+          podman run -d -p 5000:5000 -v $PWD/config-cve.json:/etc/zot/config.json ghcr.io/project-zot/zot-linux-amd64:${ZOT_VERSION}
       - name: Build and push container images
         env:
           PUBLISH_USERNAME: ${{ secrets.ZOTHUB_USERNAME }}
@@ -215,7 +217,9 @@ jobs:
             PUBLISH_URL=docker://zothub.io/c3
           make publish \
             SUBDIRS="${SUBDIRS}" \
-            PUBLISH_URL=docker://zothub.io/c3
+            PUBLISH_URL=docker://localhost:5000/c3 \
+            PUBLISH_EXTRA_ARGS="--skip-tls" \
+            PULL_EXTRA_ARGS="--src-tls-verify=false"
       - name: Scan container images
         run: |
           set -x
@@ -223,7 +227,8 @@ jobs:
           # download zli
           wget -N https://github.com/project-zot/zot/releases/download/${ZOT_VERSION}/zli-linux-amd64 -O hack/tools/bin/zli
           chmod +x hack/tools/bin/zli
-          hack/tools/bin/zli config add zothub https://zothub.io
+          hack/tools/bin/zli config add zothub http://localhost:5000
+          hack/tools/bin/zli config zothub verify-tls false
           hack/tools/bin/zli config zothub showspinner false
           # there is an assumption that every folder contains a single image defined
           # in the stacker yaml, having the same name as the folder
@@ -233,12 +238,12 @@ jobs:
               hack/tools/bin/zli cve zothub -I c3/${DISTRO}/${folder}-${ARCH}:${tag}
             done
           done
-      - name: Login to zothub.io Registry
-        uses: docker/login-action@v2
-        with:
-          registry: zothub.io
-          username: ${{ secrets.ZOTHUB_USERNAME }}
-          password: ${{ secrets.ZOTHUB_PASSWORD }}
+      # - name: Login to zothub.io Registry
+      #   uses: docker/login-action@v2
+      #   with:
+      #     registry: zothub.io
+      #     username: ${{ secrets.ZOTHUB_USERNAME }}
+      #     password: ${{ secrets.ZOTHUB_PASSWORD }}
       - name: Install go
         uses: actions/setup-go@v3
         with:
@@ -257,9 +262,9 @@ jobs:
           for folder in ${SUBDIRS}; do
             tags="$(make -C images/${folder} --no-print-directory tags)"
             for tag in ${tags}; do
-              cosign sign --key env://COSIGN_PRIVATE_KEY zothub.io/c3/${DISTRO}/${folder}-${ARCH}:${tag}
+              cosign sign --key env://COSIGN_PRIVATE_KEY localhost:5000/c3/${DISTRO}/${folder}-${ARCH}:${tag}
               # Need to retest squashfs builds, getting some errors locally
-              # cosign sign --key env://COSIGN_PRIVATE_KEY zothub.io/c3/${DISTRO}/${folder}-${ARCH}:${tag}-squashfs
+              # cosign sign --key env://COSIGN_PRIVATE_KEY localhost:5000/c3/${DISTRO}/${folder}-${ARCH}:${tag}-squashfs
             done
           done
         env:
